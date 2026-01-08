@@ -68,7 +68,11 @@ create_remote_path_if_not_exists "${REMOTE_USER}@${REMOTE_SERVER}" "${REMOTE_BAC
 echo ""
 
 # Create exclusion file
-cat $EXCLUSIONS_FILE > $TMP_EXCLUSIONS_FILE
+if [[ -e "${EXCLUSIONS_FILE}" ]]; then
+  cat $EXCLUSIONS_FILE > $TMP_EXCLUSIONS_FILE
+else
+  echo "" > $TMP_EXCLUSIONS_FILE
+fi
 add_time_machine_exclusions_to_exclusion_file $SOURCE $TMP_EXCLUSIONS_FILE
 echo ""
 
