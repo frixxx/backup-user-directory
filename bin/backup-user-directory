@@ -98,7 +98,7 @@ else
   exit 1
 fi
 
-if [ "${CHANGE_OWNER_ENABLED}" == "1" ]; then
+if [[ "${CHANGE_OWNER_ENABLED}" == "1" ]]; then
   echo ""
   echo "---> Changing owner of Backup"
   ssh ${DESTINATION_SERVER} -q -t "chown -R ${CHANGE_OWNER_USER}:${CHANGE_OWNER_GROUP} ${REMOTE_BACKUP_BY_ID_PATH}"
