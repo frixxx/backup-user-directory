@@ -1,0 +1,108 @@
+#!/usr/bin/env zsh
+
+CONFIG_DIRECTORY="${HOME}/.config/fx/backup-user-directory"
+ENV_FILE="${CONFIG_DIRECTORY}/.env"
+EXCLUSIONS_FILE="${CONFIG_DIRECTORY}/exclusions"
+TMP_EXCLUSIONS_FILE="${CONFIG_DIRECTORY}/~.exclusions"
+SOURCE="${HOME}/"
+SCRIPT_DIR=${0:A:h}
+ROOT_PATH=$(realpath "${SCRIPT_DIR}/..")
+
+source $ROOT_PATH/lib/functions.sh
+
+echo "===> Initializing backup-user-directory ..."
+echo ""
+
+load_env_file "${ENV_FILE}"
+validate_configuration
+
+# Defaults
+REMOTE_SERVER="${BACKUP_USER_DIRECTORY___REMOTE_SERVER}"
+REMOTE_USER="${BACKUP_USER_DIRECTORY___REMOTE_USER:-root}"
+REMOTE_BACKUP_PATH="${BACKUP_USER_DIRECTORY___REMOTE_BACKUP_PATH:-/data/backups}"
+REMOTE_LOGGING_SCRIPT="${BACKUP_USER_DIRECTORY___REMOTE_LOGGING_SCRIPT:-/root/scripts/backups-log}"
+REMOTE_LOGGING_ENABLED="${BACKUP_USER_DIRECTORY___REMOTE_LOGGING_ENABLED:-1}"
+CHANGE_OWNER_ENABLED="${BACKUP_USER_DIRECTORY___CHANGE_OWNER_ENABLED:-1}"
+CHANGE_OWNER_USER="${BACKUP_USER_DIRECTORY___CHANGE_OWNER_USER:-root}"
+CHANGE_OWNER_GROUP="${BACKUP_USER_DIRECTORY___CHANGE_OWNER_GROUP:-root}"
+HOSTNAME=$(hostname)
+replace_hostname_if_needed
+LOCAL_USER=$(id -un)
+REMOTE_LOGS_PATH="${REMOTE_BACKUP_PATH}/logs/${LOCAL_USER}@${HOSTNAME}.log"
+BACKUP_ID="${LOCAL_USER}@${HOSTNAME}"
+REMOTE_BACKUP_BY_ID_PATH="${REMOTE_BACKUP_PATH}/${BACKUP_ID}"
+DESTINATION_SERVER="${REMOTE_USER}@${REMOTE_SERVER}"
+SOURCE_SERVER="${LOCAL_USER}@${HOSTNAME}"
+DESTINATION="${DESTINATION_SERVER}:${REMOTE_BACKUP_BY_ID_PATH}${SOURCE}"
+DATE=$(date +'%F')
+START=$(date +'%H:%M')
+echo ""
+
+
+echo "===> Mac OS local user directory backup ..."
+echo ""
+
+
+command -v ssh >/dev/null || {
+  echo "Error: ssh command not found in PATH"
+  exit 1
+}
+
+is_homebrew_installed
+is_application_installed_with_homebrew "rsync"
+is_ssh_key_present
+is_remote_path_present "${REMOTE_USER}@${REMOTE_SERVER}" "${REMOTE_BACKUP_PATH}"
+
+echo "Hostname:     ${HOSTNAME}"
+echo "Local-User:   ${LOCAL_USER}"
+echo "Source:       ${SOURCE}"
+echo "Destination:  ${DESTINATION}"
+echo "Logs:         ${DESTINATION_SERVER}:${REMOTE_LOGS_PATH}"
+echo "Start:        ${DATE} ${START}"
+echo ""
+logStatusMessage "${SOURCE_SERVER}" "${SOURCE}" "RUNNING"
+
+create_remote_path_if_not_exists "${REMOTE_USER}@${REMOTE_SERVER}" "${REMOTE_BACKUP_PATH}/${BACKUP_ID}"
+echo ""
+
+# Create exclusion file
+cat $EXCLUSIONS_FILE > $TMP_EXCLUSIONS_FILE
+add_time_machine_exclusions_to_exclusion_file $SOURCE $TMP_EXCLUSIONS_FILE
+echo ""
+
+echo "===> Starting Backup"
+echo ""
+
+RSYNC_OPTS=(-avz --no-group --copy-links --no-owner --no-perms --progress --delete --exclude-from=$TMP_EXCLUSIONS_FILE -e "ssh -i '${FX_BACKUP_SSH_KEY_PATH}'")
+if is_dry_run "$@"; then
+  RSYNC_OPTS+=(--dry-run)
+fi
+
+RSYNC="$(brew --prefix)/bin/rsync"
+
+if is_debug "$@"; then
+  echo "---> DEBUG MODE:"
+  logStatusMessage "${SOURCE_SERVER}" "${SOURCE}" "DEBUG"
+  echo "RSYNC: ${RSYNC} ${RSYNC_OPTS[@]} ${SOURCE} ${DESTINATION}"
+  echo "<--- EXIT WITHOUT SYNCING (ATTENTION: LOGGING IS ACTIVE)"
+  exit 0
+fi
+
+if ${RSYNC} "${RSYNC_OPTS[@]}" "${SOURCE}" "${DESTINATION}" ; then
+  logStatusMessage "${SOURCE_SERVER}" "${SOURCE}" "SETTING_PERMISSIONS"
+  printf "\r\nEnded at: %s" "${DATE} $(date +'%H:%M')"
+  echo ""
+  echo "===> Done!"
+else
+  logStatusMessage "${SOURCE_SERVER}" "${SOURCE}" "ERROR"
+  exit 1
+fi
+
+if [ "${CHANGE_OWNER_ENABLED}" == "1" ]; then
+  echo ""
+  echo "---> Changing owner of Backup"
+  ssh ${DESTINATION_SERVER} -q -t "chown -R ${CHANGE_OWNER_USER}:${CHANGE_OWNER_GROUP} ${REMOTE_BACKUP_BY_ID_PATH}"
+  OUTPUT="${DATE} &raquo; ${START} - $(date +'%H:%M')"
+  logStatusMessage "${SOURCE_SERVER}" "${SOURCE}" "DONE"
+  echo "===> Done!"
+fi
