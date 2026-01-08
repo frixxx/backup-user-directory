@@ -26,6 +26,7 @@ BACKUP_USER_DIRECTORY___REMOTE_LOGGING_ENABLED=1                          # enab
 BACKUP_USER_DIRECTORY___CHANGE_OWNER_ENABLED=1                            # enable changing owner of backed up files (1) or disable (0) - defaults to 0
 BACKUP_USER_DIRECTORY___CHANGE_OWNER_USER=user                            # user to set as owner of backed up files - defaults to root
 BACKUP_USER_DIRECTORY___CHANGE_OWNER_GROUP=group                          # group to set as owner of backed up files - defaults to root
+BACKUP_USER_DIRECTORY___SSH_KEY_PATH=<pathToKeyInclKey>                   # path to ssh private key to use for connection - defaults to ~/.ssh/id_ed25519
 ```
 
 ## Configure Hostname Overrides 

@@ -25,6 +25,7 @@ REMOTE_LOGGING_ENABLED="${BACKUP_USER_DIRECTORY___REMOTE_LOGGING_ENABLED:-1}"
 CHANGE_OWNER_ENABLED="${BACKUP_USER_DIRECTORY___CHANGE_OWNER_ENABLED:-1}"
 CHANGE_OWNER_USER="${BACKUP_USER_DIRECTORY___CHANGE_OWNER_USER:-root}"
 CHANGE_OWNER_GROUP="${BACKUP_USER_DIRECTORY___CHANGE_OWNER_GROUP:-root}"
+SSH_KEY_PATH="${BACKUP_USER_DIRECTORY___SSH_KEY_PATH:-${HOME}/.ssh/id_ed25519}"
 HOSTNAME=$(hostname)
 replace_hostname_if_needed
 LOCAL_USER=$(id -un)
@@ -53,6 +54,7 @@ is_application_installed_with_homebrew "rsync"
 is_ssh_key_present
 is_remote_path_present "${REMOTE_USER}@${REMOTE_SERVER}" "${REMOTE_BACKUP_PATH}"
 
+echo "ssh-key-path: ${SSH_KEY_PATH}"
 echo "Hostname:     ${HOSTNAME}"
 echo "Local-User:   ${LOCAL_USER}"
 echo "Source:       ${SOURCE}"
@@ -73,7 +75,7 @@ echo ""
 echo "===> Starting Backup"
 echo ""
 
-RSYNC_OPTS=(-avz --no-group --copy-links --no-owner --no-perms --progress --delete --exclude-from=$TMP_EXCLUSIONS_FILE -e "ssh -i '${FX_BACKUP_SSH_KEY_PATH}'")
+RSYNC_OPTS=(-avz --no-group --copy-links --no-owner --no-perms --progress --delete --exclude-from=$TMP_EXCLUSIONS_FILE -e "ssh -i '${SSH_KEY_PATH}'")
 if is_dry_run "$@"; then
   RSYNC_OPTS+=(--dry-run)
 fi
